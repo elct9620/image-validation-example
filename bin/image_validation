@@ -18,7 +18,7 @@ class Option
   #
   # @since 0.1.0
   def initialize
-    @options = OpenStruct.new(branch: :master, max_size: 256, max_width: 1280)
+    @options = OpenStruct.new(branch: :master, max_size: 256 * 1024, max_width: 1280)
     @parsed = false
   end
 
