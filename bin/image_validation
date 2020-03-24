@@ -1,0 +1,124 @@
+#!/usr/bin/env ruby
+
+# frozen_string_literal: true
+
+require 'image_size'
+require 'pathname'
+require 'optparse'
+require 'ostruct'
+
+# Constants
+
+# Option
+class Option
+  # @since 0.1.0
+  HELP_MESSAGE = 'Usage: image_validation [options]'
+
+  # Create Options Collector
+  #
+  # @since 0.1.0
+  def initialize
+    @options = OpenStruct.new(branch: :master, max_size: 256, max_width: 1280)
+    @parsed = false
+  end
+
+  # Get Options
+  #
+  # @param key [String|Symbol]  the option name
+  # @return [Object] the options value
+  def [](key)
+    parser!
+    @options[key.to_sym]
+  end
+
+  private
+
+  def parser!
+    return if @parsed
+
+    OptionParser
+      .new { |opts| opts.banner = HELP_MESSAGE }
+      .then(&method(:register_branch))
+      .then(&method(:register_size))
+      .then(&method(:register_width))
+      .parse!
+
+    @parsed = true
+  end
+
+  def register_branch(option)
+    option.on('-b', '--branch=BRANCH', 'the target branch') do |v|
+      @options.branch = v
+    end
+  end
+
+  def register_size(option)
+    option.on('-s', '--size=SIZE', 'the max size allowed (kb)') do |v|
+      @options.max_size = v.to_i * 1024
+    end
+  end
+
+  def register_width(option)
+    option.on('-w', '--width=WIDTH', 'the max width allowed (px)') do |v|
+      @options.max_width = v.to_i
+    end
+  end
+end
+
+# Validation Image
+#
+# @since 0.1.0
+class Validation
+  # @since 0.1.0
+  DESIRED_EXTENSION = %w[.jpg .png .jpeg .gif].freeze
+
+  # Create Image Validation
+  #
+  # @since 0.1.0
+  def initialize
+    @options = Option.new
+    @valid = true
+  end
+
+  # Verify Changed Images
+  #
+  # @return [Boolean] is valid or not
+  def perform
+    @valid =
+      images.reduce(true) do |state, path|
+        state & verify_size(path) & verify_width(path)
+      end
+  end
+
+  # The result is valid or not
+  #
+  # @return [Boolean] is valid or not
+  def valid?
+    @valid == true
+  end
+
+  private
+
+  def verify_size(path)
+    @options[:max_size] >= File.size?(path)
+  end
+
+  def verify_width(path)
+    @options[:max_width] >= ImageSize.path(path).width
+  end
+
+  def images
+    changes.filter { |path| DESIRED_EXTENSION.include?(path.extname) }
+  end
+
+  def changes
+    `git diff --name-only #{@options[:branch]}`
+      .each_line
+      .map { |path| Pathname.new(path.strip) }
+  end
+end
+
+validation = Validation.new
+validation.perform
+
+exit(1) unless validation.valid?
