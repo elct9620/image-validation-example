@@ -29,5 +29,3 @@ ADD bin $APP_ROOT/bin
 # Config Execute Environment
 USER ruby
 WORKDIR /home/ruby
-
-ENTRYPOINT ["image_validation"]
